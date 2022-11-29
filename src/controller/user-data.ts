@@ -1,12 +1,12 @@
 import { Request,Response, NextFunction, json } from "express";
 import fs from 'fs'
 import logger from "../../libs/logger";
-import badRequestError from "../../libs/error-response";
+import {badRequestError,NotFoundError,successResponse} from "../../libs/error-response";
 const dbPath = './user-records.json'
 import UserData from "../model/user-data";
 
 
-const saveUserData = async (request: Request, response: Response, next: NextFunction) => {
+const saveUserData =  (request: Request, response: Response, next: NextFunction) => {
 
 
     const payload = request.body
@@ -18,11 +18,14 @@ const saveUserData = async (request: Request, response: Response, next: NextFunc
         
     }
 
-    if(payload.email == null){
-        return response.status(400).send(badRequestError('email is mandatory'));
-    }
+    if(payload.email == null || payload.name == null || payload.dob == null){
+        logger.error({message:"email,name,dob is mandatory"})
+        return response.status(400).send(badRequestError('email,name,dob is mandatory'));
+    }    
 
     const details = getUserData();
+
+    logger.info({message:'get user details', details})
     if(details.length===0){
         request.body.id = 1
     }else{
@@ -35,54 +38,61 @@ const saveUserData = async (request: Request, response: Response, next: NextFunc
     })
 
     if(checkIfDataExists){
+        logger.error({message: 'email already exists'})
         return response.status(400).send(badRequestError('email already exists')); 
     }else{
         details.push(payload)
     }
 
+    logger.info({message:'saving data to json file'})
     saveData(details)
    
-    return response.status(200).json({
-        message: 'user data inserted successfully'
-    });
+    return response.status(200).send(
+        successResponse('user data inserted successfully'));
 };
 
-const fetchUserDataById =async (request: Request, response: Response, next: NextFunction) => {
+const fetchUserDataById = (request: Request, response: Response, next: NextFunction) => {
+
+    
     const id: Number = parseInt(request.params.id);
+    logger.info({message: 'Invoking Get API to fetchUserDataById', pathParam: id})
     const getUserDetails = getUserData()
-   
+    logger.info({message: 'fetching the existing records', getUserDetails})
     const findUserById = getUserDetails.find((user: UserData)=>{
         return user.id===id
     })
 
+
     if(!findUserById){
-        return response.status(404).json({
-            message: 'id is not found'
-        });
+        logger.error({message: 'id is not found'})
+        return response.status(404).send(NotFoundError('id is not found'
+        ));
     }
+
+    logger.info({message:'find user by id', findUserById})
 
     return response.send(findUserById)
 }
 
-const deleteUserDataById =async (request: Request, response: Response, next: NextFunction) => {
+const deleteUserDataById = (request: Request, response: Response, next: NextFunction) => {
     const id: Number = parseInt(request.params.id);
+    logger.info({message: 'Invoking Delete API to deleteUserDataById', pathParam: id})
     const getUserDetails = getUserData()
-   
+    logger.info({message: 'fetching the existing records', getUserDetails})
     const filteredUsers = getUserDetails.filter((user: UserData)=>{
         return user.id!==id
     })
-
+    logger.info({message: 'filtered users',filteredUsers})
     if(!filteredUsers){
-        return response.status(404).json({
-            message: 'id is not found'
-        });
+        return response.status(404).send(NotFoundError('id is not found'
+        ));
     }
-    
+    logger.info({message: 'saving data after the data removal'})
     saveData(filteredUsers)
 
-    return response.status(200).json({
-        message: 'user details deleted successfully'
-    })
+    return response.status(200).send(successResponse('user details deleted successfully'))
+       
+
 }
 
 
@@ -99,7 +109,14 @@ const getUserData = ()=>{
 }
 
 const saveData = (data: UserData)=>{
-    fs.writeFileSync(dbPath, JSON.stringify(data))
+    if (fs.existsSync(dbPath)) {
+       logger.info({message: 'file exists'})
+       fs.writeFileSync(dbPath, JSON.stringify(data))
+      }else{
+        logger.info({message: 'file does not exists'})
+        return badRequestError('file does not exists')
+      }
+    
 }
 
 export default {saveUserData,fetchUserDataById,deleteUserDataById};

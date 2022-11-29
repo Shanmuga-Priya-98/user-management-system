@@ -5,14 +5,13 @@ import routes from './router/user-data';
 
 const router: Express = express();
 
-/** Logging */
+
 router.use(morgan('dev'));
-/** Parse the request */
+
 router.use(express.urlencoded({ extended: false }));
-/** Takes care of JSON data */
+
 router.use(express.json());
 
-/** RULES OF OUR API */
 router.use((req, res, next) => {
     // set the CORS policy
     res.header('Access-Control-Allow-Origin', '*');
@@ -26,10 +25,9 @@ router.use((req, res, next) => {
     next();
 });
 
-/** Routes */
+
 router.use('/', routes);
 
-/** Error handling */
 router.use((req, res, next) => {
     const error = new Error('not found');
     return res.status(404).json({
@@ -41,3 +39,4 @@ router.use((req, res, next) => {
 const httpServer = http.createServer(router);
 const PORT: any = process.env.PORT ?? 9000;
 httpServer.listen(PORT, () => console.log(`The server is running on port ${PORT}`));
+
