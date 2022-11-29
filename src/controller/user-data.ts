@@ -33,7 +33,7 @@ const saveUserData = async (request: Request, response: Response, next: NextFunc
         data.push(payload)
     }
 
-    fs.writeFileSync(dbPath, JSON.stringify(data))
+    saveData(payload)
    
     // return response
     return response.status(200).json({
@@ -46,11 +46,37 @@ const fetchUserDataById =async (request: Request, response: Response, next: Next
     const getUserDetails = getUserData()
    
     const findUserById = getUserDetails.find((user: UserData)=>{
-        return user.name==="aaaa"
+        return user.id===id
     })
 
-    console.log(findUserById)
+    if(!findUserById){
+        return response.status(404).json({
+            message: 'id is not found'
+        });
+    }
+
     return response.send(findUserById)
+}
+
+const deleteUserDataById =async (request: Request, response: Response, next: NextFunction) => {
+    const id: Number = parseInt(request.params.id);
+    const getUserDetails = getUserData()
+   
+    const filteredUsers = getUserDetails.filter((user: UserData)=>{
+        return user.id!==id
+    })
+
+    if(!filteredUsers){
+        return response.status(404).json({
+            message: 'id is not found'
+        });
+    }
+    
+    saveData(filteredUsers)
+
+    return response.status(200).json({
+        message: 'user details deleted successfully'
+    })
 }
 
 
@@ -59,4 +85,8 @@ const getUserData = ()=>{
     return  JSON.parse(details.toString())
 }
 
-export default {saveUserData,fetchUserDataById};
+const saveData = (data: UserData)=>{
+    fs.writeFileSync(dbPath, JSON.stringify(data))
+}
+
+export default {saveUserData,fetchUserDataById,deleteUserDataById};
