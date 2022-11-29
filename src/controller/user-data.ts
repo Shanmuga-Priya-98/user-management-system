@@ -1,41 +1,47 @@
 import { Request,Response, NextFunction, json } from "express";
-import axios, {AxiosResponse} from "axios";
 import fs from 'fs'
-
+import logger from "../../libs/logger";
+import badRequestError from "../../libs/error-response";
 const dbPath = './user-records.json'
+import UserData from "../model/user-data";
 
-interface UserData{
-    id:Number,
-    name:String,
-    email:String,
-    dob:String
-}
 
 const saveUserData = async (request: Request, response: Response, next: NextFunction) => {
 
+
     const payload = request.body
-    const data:UserData[] = []
+    logger.info({message:"Invoking Post API to Save Data", payload});
+    
     if(Object.keys(payload).length===0){
-        return response.status(400).json({
-            message: 'payload is required'
-        });
+        logger.error({message:"request body is not passed"})
+        return response.status(400).send(badRequestError('payload is required'))
+        
     }
 
     if(payload.email == null){
-        return response.status(400).json({
-            message: 'email is mandatory'
-        });
+        return response.status(400).send(badRequestError('email is mandatory'));
     }
 
-    console.log(payload)
-
-    if(payload){
-        data.push(payload)
+    const details = getUserData();
+    if(details.length===0){
+        request.body.id = 1
+    }else{
+        const lastRecord = details[details.length-1];
+        request.body.id = lastRecord.id+1
     }
 
-    saveData(payload)
+    const checkIfDataExists = details.find((user:UserData)=>{
+        return user.email === payload.email
+    })
+
+    if(checkIfDataExists){
+        return response.status(400).send(badRequestError('email already exists')); 
+    }else{
+        details.push(payload)
+    }
+
+    saveData(details)
    
-    // return response
     return response.status(200).json({
         message: 'user data inserted successfully'
     });
@@ -81,8 +87,15 @@ const deleteUserDataById =async (request: Request, response: Response, next: Nex
 
 
 const getUserData = ()=>{
-    const details = fs.readFileSync(dbPath)
-    return  JSON.parse(details.toString())
+    const details = fs.readFileSync(dbPath) 
+    const user: UserData[]=[]
+    if(details.toJSON().data.length === 0){
+        return user
+       
+    }else{
+        return  JSON.parse(details.toString())
+    }
+    
 }
 
 const saveData = (data: UserData)=>{
